@@ -9,13 +9,34 @@ Gemini
 ### Q1
 
 **質問：**
-（生成AIに聞いた質問をそのまま書く）
 
+  SwiftのCodableってなんですか？微妙かもしれないので例あげます
+  struct SearchResponse: Codable 
+  優しい日本語で説明してください。
+  
 **AIの回答の要点：**
-（長い回答の場合、要点だけ自分の言葉でまとめる）
+
+Codableとは？
+  簡単に言うと、Codableは**「Swiftのデータ（構造体など）」と「外部データ（JSONなど）」を相互に変換するためのお約束（ルール）**のことです。
+
+  アプリを作っていると、サーバーからデータを取得したり、設定を保存したりする際によく「JSON」という形式を使います。しかし、Swiftの中では「構造体(struct)」として扱いたいですよね。その橋渡しをしてくれるのがCodableです。
+
+  実際にどう使うの？
+あなたが例に出してくれたコードを見てみましょう。
+
+```Swift
+struct SearchResponse: Codable {
+    let title: String
+    let count: Int
+}
+```
+
+  このように: Codableと書くだけで、Swiftは以下の2つができるようになります：
+  デコード (Decoding): JSONデータをSearchResponseという構造体に変換する（読み込み）。
+  エンコード (Encoding): SearchResponseという構造体をJSONデータに変換する（書き出し）。
 
 **自分の理解：**
-（回答を受けて自分がどう理解したか。納得できたか、さらに疑問が生まれたか）
+  JSONなどべつデータタイプをSwift使われるデータ（struct, class, だど）の変更する。
 
 ### Q2
 
