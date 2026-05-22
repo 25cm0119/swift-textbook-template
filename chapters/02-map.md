@@ -261,17 +261,38 @@ struct Landmark: Identifiable {
 ランドマークという構造体を定義し、個別の観光スポットの情報を保持します。それぞれのランドマークは一意のID、名前、説明、座標、そしてカテゴリを持ちます。
 
 **なぜこう書くのか：**
-（別の書き方ではなく、この書き方が選ばれている理由を説明する）
+Identifiableプロトコルにより、SwiftUIが各ランドマークを一意に識別でき、ForEachで正確にマーカーを描画できます。ネストされたCategory列挙型により、カテゴリごとのアイコンと色を一箇所で管理でき、保守性が高まります。CaseIterableを採用することで、全てのカテゴリを簡単に列挙でき、フィルター機能を実装しやすくなります。
 
 **もしこう書かなかったら：**
-（この部分を省略したり変えたりすると何が起きるか。実際に試した結果があればここに書く）
+Identifiableを採用していなかった場合、ForEachでidパラメータを明示的に指定する必要があり、コードが冗長になります。
+
 
 ---
 
 ### 地図の表示とカメラ制御
 
 ```swift
-// 該当部分のコードを抜粋して貼る
+@State private var cameraPosition: MapCameraPosition = .region(
+    MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 35.6812, longitude: 139.7671),
+        span: MKCoordinateSpan(latitudeDelta: 0.08, longitudeDelta: 0.08)
+    )
+)
+
+var body: some View {
+    ZStack(alignment: .bottom) {
+        // 地図
+        Map(position: $cameraPosition) {
+            ForEach(filteredLandmarks) { landmark in
+                Marker(
+                    landmark.name,
+                    systemImage: landmark.category.iconName,
+                    coordinate: landmark.coordinate
+                )
+                .tint(landmark.category.color)
+            }
+        }
+        .mapStyle(.standard(elevation: .realistic))
 ```
 
 **何をしているか：**
