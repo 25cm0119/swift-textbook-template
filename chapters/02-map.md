@@ -331,14 +331,64 @@ systemImageで標準アイコンを使用することで、外部の画像ファ
 ### フィルター機能
 
 ```swift
-// 該当部分のコードを抜粋して貼る
+@State private var selectedCategories: Set<Landmark.Category> = Set(Landmark.Category.allCases)
+
+var filteredLandmarks: [Landmark] {
+    Landmark.sampleData.filter { selectedCategories.contains($0.category) }
+}
+
+struct CategoryFilter: View {
+    @Binding var selectedCategories: Set<Landmark.Category>
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(Landmark.Category.allCases, id: \.self) { category in
+                Button {
+                    if selectedCategories.contains(category) {
+                        selectedCategories.remove(category)
+                    } else {
+                        selectedCategories.insert(category)
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: category.iconName)
+                        Text(category.rawValue)
+                    }
+                    .font(.caption)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(
+                        selectedCategories.contains(category)
+                            ? category.color.opacity(0.2)
+                            : Color.gray.opacity(0.1)
+                    )
+                    .foregroundStyle(
+                        selectedCategories.contains(category)
+                            ? category.color
+                            : .gray
+                    )
+                    .clipShape(Capsule())
+                }
+            }
+        }
+        .padding(8)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+}
 ```
 
 **何をしているか：**
 
+selectedCategoriesという状態変数で現在選択されているカテゴリをSetで管理します。filteredLandmarks計算プロパティで、選択されたカテゴリに属するランドマークのみをフィルタリングします。CategoryFilterビューでは、全てのカテゴリをボタンで表示し、タップするとカテゴリを追加または削除できます。選択状態に応じてボタンの背景色と文字色が変わります。
+
 **なぜこう書くのか：**
 
+Setを使用することで、重複がなく、追加・削除操作が効率的です（配列の場合は毎回線形探索が必要）。計算プロパティfilteredLandmarksにより、状態が変わるたびに自動的にマーカーが更新されます。ボタンの選択状態を視覚的に区別することで、ユーザーが現在の選択状態を直感的に理解できます。
+
 **もしこう書かなかったら：**
+
+もしselectedCategoriesを配列で管理していた場合、同じカテゴリが複数登録される可能性があり、処理が複雑になります。フィルター機能がなかった場合、6つ全てのマーカーが常に表示され、画面が見づらくなります。ボタンの見た目が選択状態を反映していなかった場合、ユーザーが現在の選択状態を把握しにくくなります。
 
 ---
 
@@ -348,18 +398,27 @@ systemImageで標準アイコンを使用することで、外部の画像ファ
 
 | 項目 | 説明 | 使用例 |
 |------|------|--------|
-| 例：`Map` | SwiftUIで地図を表示するビューコンポーネント | `Map(position: .constant(.region(region)))` |
-| 例：`Marker` | 地図上に位置をマーキングするコンポーネント | `Marker("名前", coordinate: coordinate)` |
-| | | |
-| | | |
-| | | |
+| `Map` | SwiftUIで地図を表示するビューコンポーネント | `Map(position: $cameraPosition) { ... }` |
+| `Marker` | 地図上に位置をマーキングするコンポーネント | `Marker(landmark.name, systemImage: landmark.category.iconName, coordinate: landmark.coordinate)` |
+| `MapCameraPosition` | 地図のカメラ（表示位置）を制御する型 | `.region(MKCoordinateRegion(...))` |
+| `MKCoordinateRegion` | 地図領域を定義（中心とズームスパン） | `MKCoordinateRegion(center: CLLocationCoordinate2D(...), span: MKCoordinateSpan(...))` |
+| `CLLocationCoordinate2D` | 緯度経度を表現する型 | `CLLocationCoordinate2D(latitude: 35.6812, longitude: 139.7671)` |
+| `Identifiable` | プロトコル：オブジェクトに一意IDを付与 | `struct Landmark: Identifiable { let id = UUID() }` |
+| `CaseIterable` | 列挙型の全ケースを列挙可能にする | `enum Category: CaseIterable { ... }` で `Category.allCases` が使用可能 |
+| `@Binding` | 親ビューの状態を子ビューで編集可能に | `@Binding var selectedCategories: Set<Landmark.Category>` |
+| `Set<T>` | 重複のない順序不定のコレクション | `Set(Landmark.Category.allCases)` |
+| `mapStyle` | 地図のスタイルを設定 | `.mapStyle(.standard(elevation: .realistic))` |
+| `systemImage` | SF Symbolsの標準アイコンを使用 | `Image(systemName: "building.columns")` |
+| `CaseIterable` + `allCases` | 列挙型の全ケースを配列で取得 | `ForEach(Landmark.Category.allCases) { ... }` |
+
+---
 
 ## 自分の実験メモ
 
 （模範コードを改変して試したことを書く）
 
-**実験1：**
-- やったこと：
+**実験1： **
+- やったこと： 
 - 結果：
 - わかったこと：
 
