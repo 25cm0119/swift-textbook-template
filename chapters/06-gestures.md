@@ -386,29 +386,91 @@ Circle()
 タップとロングプレスは、タップジェスチャーのビルダーパターンで実装するのが最もシンプルです。onTapGestureとonLongPressGestureモディファイアは、複雑なDragGestureなどと違い、最小限のコードで実装できます。
 
 **もしこう書かなかったら：**
-（この部分を省略したり変えたりすると何が起きるか。実際に試した結果があればここに書く）
+- `onTapGesture`を使わずに手動でタップ判定をしようとすると、複雑な座標計算が必要になり、実装が非常に難しくなります。
+- `minimumDuration`を設定しないと、短いタップでもロングプレスが反応してしまい、両者の区別ができなくなります。
+- `animation`モディファイアを追加しないと、色とサイズが瞬間的に変わるだけで、視覚的なフィードバックが不足します。実際に試すと、ユーザーが反応したことが実感しにくくなります。
 
 ---
 
 ### ドラッグジェスチャーとオフセット管理
 
 ```swift
-// 該当部分のコードを抜粋して貼る
+@State private var offset: CGSize = .zero
+@State private var lastOffset: CGSize = .zero
+
+RoundedRectangle(cornerRadius: 20)
+    .fill(...)
+    .frame(width: 200, height: 280)
+    .offset(offset)
+    .gesture(
+        DragGesture()
+            .onChanged { value in
+                offset = CGSize(
+                    width: lastOffset.width + value.translation.width,
+                    height: lastOffset.height + value.translation.height
+                )
+            }
+            .onEnded { _ in
+                lastOffset = offset
+            }
+    )
 ```
 
 **何をしているか：**
+ドラッグジェスチャーでカードを移動させます。`DragGesture().onChanged`は指がスクリーン上を動く間、毎フレーム実行されます。`value.translation`は現在の移動量（最初のタッチ位置との差分）を表すため、`lastOffset`に加算して累積オフセットを計算します。ドラッグが終了したら、`onEnded`で`lastOffset`を更新して、次のドラッグの開始点を記録します。
 
 **なぜこう書くのか：**
+`lastOffset`と`offset`の2つの状態変数が必要です。理由は、`DragGesture().onChanged`の`value.translation`は常に最後のドラッグ開始点からの相対移動だからです。新しいドラッグが開始されるたびに`translation`がリセットされるため、`lastOffset`に前回のドラッグ終了時点を保存しておかないと、カードが想定外の位置にジャンプしてしまいます。
 
 **もしこう書かなかったら：**
+- `lastOffset`を使わず、単に`offset = value.translation`と書くと、新しいドラッグを開始するたびにカードが初期位置にジャンプします。
+- `.onEnded`で`lastOffset = offset`の更新を忘れると、ドラッグ中に複数のジェスチャーを検出してしまい、予測不可能な動きになります。
+- 実際に試してみたら、`lastOffset`の更新なしでは、2回目のドラッグでカードが最初の位置に戻ってしまいました。
+
 
 ---
 
 ### 拡大縮小と回転
 
 ```swift
-// 該当部分のコードを抜粋して貼る
-```
+@State private var scale: CGFloat = 1.0
+@State private var lastScale: CGFloat = 1.0
+
+Image(systemName: "star.fill")
+    .font(.system(size: 100))
+    .foregroundStyle(.yellow)
+    .frame(width: 300, height: 300)
+    .contentShape(Rectangle())
+    .scaleEffect(scale)
+    .gesture(
+        MagnifyGesture()
+            .onChanged { value in
+                scale = lastScale * value.magnification
+            }
+            .onEnded { _ in
+                lastScale = scale
+            }
+    )
+
+// 回転の例
+@State private var angle: Angle = .zero
+@State private var lastAngle: Angle = .zero
+
+Image(systemName: "arrow.up")
+    .font(.system(size: 80))
+    .foregroundStyle(.red)
+    .frame(width: 300, height: 300)
+    .contentShape(Rectangle())
+    .rotationEffect(angle)
+    .gesture(
+        RotateGesture()
+            .onChanged { value in
+                angle = lastAngle + value.rotation
+            }
+            .onEnded { _ in
+                lastAngle = angle
+            }
+    )```
 
 **何をしているか：**
 
@@ -425,10 +487,21 @@ Circle()
 ```
 
 **何をしているか：**
+ピンチジェスチャーで星のアイコンを拡大・縮小します。`MagnifyGesture`の`value.magnification`は、2本指の間隔の比率を示します。前フレームの倍率`lastScale`に`magnification`を掛けることで、段階的な拡大縮小を実現します。
+
+回転ジェスチャーで矢印を回転させます。`RotateGesture`の`value.rotation`は、2本指がどれだけ回転したかを`Angle`で取得できます。前フレームの角度`lastAngle`に新しい回転角を足すことで、連続的な回転を表現します。
 
 **なぜこう書くのか：**
 
+ドラッグと同じく、ピンチと回転でも「前フレームからの変化量」を累積する必要があります。`value.magnification`は新しいジェスチャーが開始されるたびにリセットされるため、`lastScale`に保存して累積させないと、拡大中に指が画面から離れると元のサイズに戻ってしまいます。
+
+`.contentShape(Rectangle())`を追加している理由は、画像の透明な部分を避けてタッチ判定をするためです。このテクニックを使わないと、アイコンの外側（フレームの300×300の領域内でも透明な部分）をタッチしてもジェスチャーが反応しません。
+
 **もしこう書かなかったら：**
+
+- `lastScale * value.magnification`ではなく、単に`value.magnification`と書くと、ピンチを開始するたびに元のサイズに戻ります。
+- `.contentShape(Rectangle())`を使わないと、アイコンの細い部分（矢印の先端など）しかタッチできなくなり、ユーザー体験が悪くなります。実際に試すと、クリックできる領域が非常に小さく、操作が困難になりました。
+- `Angle`型ではなく`CGFloat`型を使うと、角度の単位を自分で管理する必要があり、ラジアンと度数法の変換バグが生じやすくなります。
 
 ---
 
@@ -438,11 +511,16 @@ Circle()
 
 | 項目 | 説明 | 使用例 |
 |------|------|--------|
-| 例：`DragGesture` | ドラッグジェスチャーを認識するジェスチャーレコグナイザー | `.gesture(DragGesture().onChanged { ... })` |
-| 例：`MagnificationGesture` | ピンチジェスチャーで拡大・縮小を認識 | `.gesture(MagnificationGesture().onChanged { scale in ... })` |
-| | | |
-| | | |
-| | | |
+| `onTapGesture` | ビューのタップを検出するモディファイア | `.onTapGesture { tapCount += 1 }` |
+| `onLongPressGesture` | 長押しを検出するモディファイア | `.onLongPressGesture(minimumDuration: 1.0) { ... }` |
+| `DragGesture` | ドラッグの移動量を取得するジェスチャー | `.gesture(DragGesture().onChanged { value.translation })` |
+| `MagnifyGesture` | ピンチジェスチャーで拡大・縮小を認識 | `.gesture(MagnifyGesture().onChanged { scale *= value.magnification })` |
+| `RotateGesture` | 2本指の回転を認識するジェスチャー | `.gesture(RotateGesture().onChanged { angle += value.rotation })` |
+| `scaleEffect` | ビューのサイズを倍率で変更するモディファイア | `.scaleEffect(1.5)` |
+| `rotationEffect` | ビューを角度で回転させるモディファイア | `.rotationEffect(.degrees(45))` |
+| `offset` | ビューを相対位置で移動させるモディファイア | `.offset(CGSize(width: 10, height: 20))` |
+| `contentShape` | タッチ判定の有効範囲を定義するモディファイア | `.contentShape(Rectangle())` |
+| `simultaneousGesture` | 複数のジェスチャーを同時に認識させるモディファイア | `.simultaneousGesture(MagnifyGesture())` |
 
 ## 自分の実験メモ
 
